@@ -352,9 +352,11 @@ def move_and_hide_collection(objects: bpy.types.Object, new_collection: str, hid
     bpy.context.scene.collection.children[get_name()].children.link(object_collection)
     # then hide the new collection
     try:
-        bpy.context.scene.view_layers[0].active_layer_collection = \
-            bpy.context.view_layer.layer_collection.children[get_name()].children[new_collection]
-        bpy.context.scene.view_layers[0].active_layer_collection.exclude = hide
+        # Use bpy.context.view_layer instead of bpy.context.scene.view_layers[0] for Blender 5.0 compatibility
+        layer_collection = bpy.context.view_layer.layer_collection.children[get_name()].children.get(new_collection)
+        if layer_collection:
+            bpy.context.view_layer.active_layer_collection = layer_collection
+            bpy.context.view_layer.active_layer_collection.exclude = hide
     except:
         kklog(f'Failed to move and hide collection: {new_collection}', type='error')
 

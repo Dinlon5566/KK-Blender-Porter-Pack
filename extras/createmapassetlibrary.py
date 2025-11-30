@@ -281,7 +281,9 @@ def main(folder):
                 obj.asset_data.tags.new(category)
 
         #hide the collection afterwards
-        bpy.context.scene.view_layers[0].active_layer_collection.exclude = True
+        # Use bpy.context.view_layer instead of bpy.context.scene.view_layers[0] for Blender 5.0 compatibility
+        if bpy.context.view_layer.active_layer_collection:
+            bpy.context.view_layer.active_layer_collection.exclude = True
 
         #load a script into the layout tab
 #         if bpy.data.screens.get('Layout'):

@@ -69,20 +69,40 @@ class post_operations(bpy.types.Operator):
         for index, id in enumerate(outfit_ids):
             clothes_in_this_id = [c for c in c.get_alts() if c.get('id') == str(id).zfill(2)]
             c.switch(clothes_in_this_id[0], 'OBJECT')
-            #find the character index
+            #find the character collection
             character_collection_index = len(bpy.context.view_layer.layer_collection.children)-1
-            #find the index of the outfit collection
-            for i, child in enumerate(bpy.context.view_layer.layer_collection.children[character_collection_index].children):
-                if child.name == 'Outfit ' + str(id).zfill(2) + ' ' + c.get_name():
+            #find the outfit collection
+            outfit_collection_name = 'Outfit ' + str(id).zfill(2) + ' ' + c.get_name()
+            outfit_collection = None
+            for child in bpy.context.view_layer.layer_collection.children[character_collection_index].children:
+                if child.name == outfit_collection_name:
+                    outfit_collection = bpy.data.collections.get(outfit_collection_name)
                     break
-            for ob in clothes_in_this_id:
-                ob.select_set(True)
-                bpy.context.view_layer.objects.active=ob
+            
             new_collection_name = 'Alts ' + str(id).zfill(2) + ' ' + c.get_name()
-            #extremely confusing move to under the clothes collection. Index is the outfit index + outfit collection index (starts at 1) + Scene collection (1) +  + character collection index (usually 0) + 1
-            bpy.ops.object.move_to_collection(collection_index = (index+i) + 1 + (character_collection_index + 1), is_new = True, new_collection_name = new_collection_name)
-            #then hide the alts
-            child.children[0].exclude = True
+            #create new collection or get existing one
+            alt_collection = bpy.data.collections.get(new_collection_name)
+            if not alt_collection:
+                alt_collection = bpy.data.collections.new(new_collection_name)
+                #link to the character collection (same parent as outfit collection)
+                character_collection = bpy.context.view_layer.layer_collection.children[character_collection_index].collection
+                character_collection.children.link(alt_collection)
+            
+            #move objects to the new collection
+            for ob in clothes_in_this_id:
+                #unlink from old collections
+                for old_col in ob.users_collection:
+                    old_col.objects.unlink(ob)
+                #link to new collection
+                alt_collection.objects.link(ob)
+            
+            #then hide the alts collection
+            alt_layer_collection = c.get_layer_collection_from_name(
+                bpy.context.view_layer.layer_collection.children[character_collection_index],
+                new_collection_name
+            )
+            if alt_layer_collection:
+                alt_layer_collection.exclude = True
 
         #put the eyegags and tears into their own collection
         face_objects = []

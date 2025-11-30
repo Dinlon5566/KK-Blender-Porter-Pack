@@ -41,16 +41,38 @@ def main(prep_type, simp_type):
         except:
             c.kklog("During export prep, couldn't move object '{}' for some reason...".format(object), type='error')
     if bpy.context.selected_objects:
-        bpy.ops.object.move_to_collection(collection_index=0, is_new=True, new_collection_name='Unused clothing items')
+        #create new collection or get existing one
+        collection_name = 'Unused clothing items'
+        unused_collection = bpy.data.collections.get(collection_name)
+        if not unused_collection:
+            unused_collection = bpy.data.collections.new(collection_name)
+            bpy.context.scene.collection.children.link(unused_collection)
+        
+        #move selected objects to the collection
+        for obj in bpy.context.selected_objects:
+            #unlink from old collections
+            for old_col in obj.users_collection:
+                old_col.objects.unlink(obj)
+            #link to new collection
+            unused_collection.objects.link(obj)
+    
     #hide the new collection
     try:
-        bpy.context.scene.view_layers[0].active_layer_collection = bpy.context.view_layer.layer_collection.children['Unused clothing items']
-        bpy.context.scene.view_layers[0].active_layer_collection.exclude = True
+        unused_layer_collection = c.get_layer_collection_from_name(
+            bpy.context.view_layer.layer_collection,
+            collection_name
+        )
+        if unused_layer_collection:
+            unused_layer_collection.exclude = True
     except:
         try:
             #maybe the collection is in the default Collection collection
-            bpy.context.scene.view_layers[0].active_layer_collection = bpy.context.view_layer.layer_collection.children['Collection'].children['Unused clothing items']
-            bpy.context.scene.view_layers[0].active_layer_collection.exclude = True
+            unused_layer_collection = c.get_layer_collection_from_name(
+                bpy.context.view_layer.layer_collection.children['Collection'],
+                collection_name
+            )
+            if unused_layer_collection:
+                unused_layer_collection.exclude = True
         except:
             #maybe the collection is already hidden, or doesn't exist
             pass

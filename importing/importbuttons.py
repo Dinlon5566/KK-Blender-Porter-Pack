@@ -36,7 +36,10 @@ class kkbp_import(bpy.types.Operator):
         if not bpy.data.collections.get('Collection'):
             new_col = bpy.data.collections.new('Collection')
             bpy.context.scene.collection.children.link(new_col)
-            bpy.context.scene.view_layers[0].active_layer_collection = bpy.context.view_layer.layer_collection.children[new_col.name]
+            # Use bpy.context.view_layer instead of bpy.context.scene.view_layers[0] for Blender 5.0 compatibility
+            layer_collection = bpy.context.view_layer.layer_collection.children.get(new_col.name)
+            if layer_collection:
+                bpy.context.view_layer.active_layer_collection = layer_collection
 
         #Set the view transform 
         bpy.data.scenes[0].display_settings.display_device = 'sRGB'

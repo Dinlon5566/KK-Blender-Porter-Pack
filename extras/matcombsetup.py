@@ -45,7 +45,9 @@ class mat_comb_setup(bpy.types.Operator):
             layer_collection = bpy.context.view_layer.layer_collection
             layerColl = recurLayerCollection(layer_collection, 'Scene Collection')
             bpy.context.view_layer.active_layer_collection = layerColl
-            bpy.context.scene.view_layers[0].active_layer_collection.children[0].exclude = False
+            # Use bpy.context.view_layer instead of bpy.context.scene.view_layers[0] for Blender 5.0 compatibility
+            if layerColl and layerColl.children:
+                layerColl.children[0].exclude = False
 
         #Change the Active LayerCollection to 'My Collection'
         layer_collection = bpy.context.view_layer.layer_collection
