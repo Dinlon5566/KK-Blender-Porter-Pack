@@ -375,12 +375,15 @@ def get_layer_collection_from_name(base_collection: bpy.types.LayerCollection,
             recursive_result = get_layer_collection_from_name(child, search_term)
             if recursive_result:
                 return recursive_result
+    return None
 
 
 def get_layer_collection_state(collection_name: str) -> bool:
     '''Gets the exclude state of a view layer collection'''
     base_collection = bpy.context.view_layer.layer_collection
     collection = get_layer_collection_from_name(base_collection, collection_name)
+    if collection is None:
+        return False
     return collection.exclude
 
 
@@ -388,7 +391,8 @@ def show_layer_collection(collection_name: str, state: bool):
     '''Sets the exclude state of a view layer collection'''
     base_collection = bpy.context.view_layer.layer_collection
     collection = get_layer_collection_from_name(base_collection, collection_name)
-    collection.exclude = state
+    if collection is not None:
+        collection.exclude = state
 
 
 def clean_orphaned_data():

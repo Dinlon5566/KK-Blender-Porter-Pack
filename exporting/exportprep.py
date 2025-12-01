@@ -173,10 +173,15 @@ def main(prep_type, simp_type):
             armature.data.bones['Right Eye'].collections.clear()
             armature.data.collections['0'].assign(armature.data.bones.get('Right Eye'))
         
+        #Switch to EDIT mode to select bones
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.armature.select_all(action='DESELECT')
+        
         #Select bones on layer 11
         for bone in armature.data.bones:
             if bone.collections.get('10'):
-                bone.select = True
+                if armature.data.edit_bones.get(bone.name):
+                    armature.data.edit_bones[bone.name].select = True
         
         #if very simple selected, also get 3-5,12,17-19
         if simp_type in ['A']:
@@ -191,10 +196,10 @@ def main(prep_type, simp_type):
                                bone.collections.get('18')
                                )
                 if select_bool:
-                    bone.select = True
+                    if armature.data.edit_bones.get(bone.name):
+                        armature.data.edit_bones[bone.name].select = True
         
         c.kklog('Using the merge weights function in CATS to simplify bones...')
-        bpy.ops.object.mode_set(mode='EDIT')
         bpy.ops.kkbp.cats_merge_weights()
 
     #If exporting for VRM or VRC...
@@ -217,8 +222,7 @@ def main(prep_type, simp_type):
             armature.data.edit_bones['Right shoulder'].parent = armature.data.edit_bones['Upper Chest']
             armature.data.edit_bones.remove(armature.data.edit_bones['dont need lol'])
 
-        bpy.ops.object.mode_set(mode='POSE')
-        bpy.ops.pose.select_all(action='DESELECT')
+        bpy.ops.armature.select_all(action='DESELECT')
 
         #Merge specific bones for unity rig autodetect
         armature = bpy.data.objects[armature_name]
@@ -226,11 +230,10 @@ def main(prep_type, simp_type):
         #Delete the upper chest for VR chat models, since it apparently causes errors with eye tracking
         if prep_type == 'D':
             merge_these.append('Upper Chest')
-        for bone in armature.data.bones:
-            if bone.name in merge_these:
-                bone.select = True
+        for bone_name in merge_these:
+            if armature.data.edit_bones.get(bone_name):
+                armature.data.edit_bones[bone_name].select = True
 
-        bpy.ops.object.mode_set(mode='EDIT')
         bpy.ops.kkbp.cats_merge_weights()
 
     #If exporting for MMD...

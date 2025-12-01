@@ -249,14 +249,21 @@ def cleanup():
     for block in bpy.data.cameras:
         if block.users == 0:
             bpy.data.cameras.remove(block)
-    for ob in [obj for obj in bpy.context.view_layer.objects if obj and obj.type == 'MESH']:
-        #delete the geometry modifier
-        if ob.modifiers.get('Flattener'):
-            ob.modifiers.remove(ob.modifiers['Flattener'])
-            #delete the two scale drivers
-            ob.animation_data.drivers.remove(ob.animation_data.drivers[0])
-            ob.animation_data.drivers.remove(ob.animation_data.drivers[0])
-            ob.scale = (1,1,1)
+    for ob in bpy.data.objects:
+        if ob and ob.type == 'MESH':
+            #delete the geometry modifier
+            if ob.modifiers.get('Flattener'):
+                ob.modifiers.remove(ob.modifiers['Flattener'])
+                #delete the two scale drivers
+                if ob.animation_data and ob.animation_data.drivers:
+                    # Safely remove drivers if they exist
+                    try:
+                        if len(ob.animation_data.drivers) >= 2:
+                            ob.animation_data.drivers.remove(ob.animation_data.drivers[0])
+                            ob.animation_data.drivers.remove(ob.animation_data.drivers[0])
+                    except:
+                        pass
+                ob.scale = (1,1,1)
     bpy.data.node_groups.remove(bpy.data.node_groups['.Geometry Nodes'])
 
 def replace_all_baked_materials(folderpath: str, bake_object: bpy.types.Object):
@@ -432,8 +439,17 @@ def create_material_atlas(folderpath: str):
             image_node.name = 'Image Texture'
             links.new(emissive_node.inputs[0], image_node.outputs[0])
             image_node.image = nodes['textures'].node_tree.nodes['light'].image
-        context.view_layer.objects.active = obj
-        bpy.ops.object.material_slot_remove_unused()
+        # Ensure proper context for material_slot_remove_unused in Blender 5.0
+        try:
+            # Ensure object is visible and in view layer
+            obj.hide_set(False)
+            # Use c.switch to ensure proper context setup
+            c.switch(obj, 'object')
+            bpy.ops.object.material_slot_remove_unused()
+        except:
+            # If operation fails, skip this object
+            c.kklog(f"Could not remove unused material slots from {obj.name}", type='warn')
+            pass
 
     #call the material combiner script
     bpy.ops.kkbp.combiner()
@@ -560,13 +576,26 @@ class bake_materials(bpy.types.Operator):
             c.toggle_console()
             c.reset_timer()
             c.kklog('Switching to EEVEE for material baking...')
-            bpy.context.scene.render.engine = 'BLENDER_EEVEE_NEXT' if bpy.app.version[0] > 3 else 'BLENDER_EEVEE'
+            # Blender 4.0-4.x uses BLENDER_EEVEE_NEXT, Blender 5.0+ uses BLENDER_EEVEE
+            if bpy.app.version[0] == 4:
+                bpy.context.scene.render.engine = 'BLENDER_EEVEE_NEXT'
+            else:
+                bpy.context.scene.render.engine = 'BLENDER_EEVEE'
             c.switch(c.get_body(), 'OBJECT')
             c.set_viewport_shading('SOLID')
             
             #enable transparency
             bpy.context.scene.render.film_transparent = True
             bpy.context.scene.render.filter_size = 0.50
+
+            # Save original visibility states for all objects
+            original_visibility_states = {}
+            for obj in bpy.data.objects:
+                if obj.type == 'MESH':
+                    original_visibility_states[obj] = {
+                        'hide_render': obj.hide_render,
+                        'hide_viewport': obj.hide_get()
+                    }
 
             for bake_object in c.get_all_bakeable_objects():
                 #do a quick check to make sure this object has any materials that can be baked
@@ -581,11 +610,13 @@ class bake_materials(bpy.types.Operator):
                     c.show_layer_collection(bake_object.users_collection[0].name, False)
 
                 #hide all objects except this one
-                for obj in [o for o in bpy.context.view_layer.objects if o]:
-                    obj.hide_render = True
+                for obj in bpy.data.objects:
+                    if obj.type == 'MESH':
+                        obj.hide_render = True
                 #unhide the object to bake (but only if the old baking system is not used)
                 if not bpy.context.scene.kkbp.old_bake_bool:
                     bake_object.hide_render = False
+                    bake_object.hide_set(False)  # Ensure object is visible in viewport
                 camera = setup_camera()
                 c.switch(bake_object)
                 setup_geometry_nodes_and_fillerplane(camera)
@@ -613,9 +644,10 @@ class bake_materials(bpy.types.Operator):
             for bake_object in c.get_all_bakeable_objects():
                 replace_all_baked_materials(folderpath, bake_object)
             
-            #show all objects again
-            for obj in bpy.context.view_layer.objects:
-                obj.hide_render = False
+            # Restore original visibility states for all objects
+            for obj, states in original_visibility_states.items():
+                obj.hide_render = states['hide_render']
+                obj.hide_set(states['hide_viewport'])
             
             if scene.use_atlas:
                 create_material_atlas(folderpath)

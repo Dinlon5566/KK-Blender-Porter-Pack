@@ -94,8 +94,17 @@ class mat_comb_setup(bpy.types.Operator):
                 image_node = nodes.new('ShaderNodeTexImage')
                 links.new(emissive_node.inputs[0], image_node.outputs[0])
                 image_node.image = nodes['textures'].node_tree.nodes['light'].image
-            context.view_layer.objects.active = obj
-            bpy.ops.object.material_slot_remove_unused()
+            # Ensure proper context for material_slot_remove_unused in Blender 5.0
+            try:
+                # Ensure object is visible and in view layer
+                obj.hide_set(False)
+                # Use c.switch to ensure proper context setup
+                c.switch(obj, 'object')
+                bpy.ops.object.material_slot_remove_unused()
+            except:
+                # If operation fails, skip this object
+                c.kklog(f"Could not remove unused material slots from {obj.name}", type='warn')
+                pass
 
             #update the modifiers
             for mod in obj.modifiers:
